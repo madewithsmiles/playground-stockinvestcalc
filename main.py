@@ -17,7 +17,7 @@ InvestmentSuggestion = namedtuple('InvestSuggestion',
 
 DEFAULT_INVEST_SUGGESTION = InvestmentSuggestion()
 
-InvestmentValue = namedtuple('InvestmentValue', ['Shares', 'Value'])
+InvestmentValue = namedtuple('InvestmentValue', ['Price', 'Shares', 'Value'])
 
 CalcArgFields = ('current_price',
                 'old_price',
@@ -48,6 +48,7 @@ class Logger(ABC):
 class ConsoleLogger(Logger):
     class bcolors: # https://stackoverflow.com/a/21786287
         HEADER = '\x1b[95m' # '\033[95m'
+        VERBOSE = '\x1b[2;30;44m'
         OKBLUE = '\x1b[94m' # '\033[94m'
         OKCYAN = '\x1b[0;34;40m' # '\033[96m'
         OKGREEN = '\x1b[6;30;42m' # '\033[92m'
@@ -64,7 +65,7 @@ class ConsoleLogger(Logger):
         print(f'{ConsoleLogger.bcolors.OKBLUE}{msg}{ConsoleLogger.bcolors.ENDC}')
 
     def verbose(self, msg):
-        print(f'{ConsoleLogger.bcolors.OKCYAN}{msg}{ConsoleLogger.bcolors.ENDC}')
+        print(f'{ConsoleLogger.bcolors.VERBOSE}{msg}{ConsoleLogger.bcolors.ENDC}')
 
     def error(self, msg):
         print(f'{ConsoleLogger.bcolors.FAIL}{msg}{ConsoleLogger.bcolors.ENDC}')
@@ -103,7 +104,7 @@ class CalcFactory():
     def calc_invest_given_previous_growth(current_price, old_price, target_balance, verbose=False):
         rate_of_change = get_price_change_rate_from_old_price(old_price, current_price)
         if verbose:
-            ConsoleLogger().verbose(f'{CalcFactory.PREVIOUS_GROWTH}: price grew by {rate_of_change:,} ({round(rate_of_change * 100, 3):,}%)')
+            ConsoleLogger().verbose(f'{CalcType.PREVIOUS_GROWTH}: price grew by {rate_of_change:,} ({round(rate_of_change * 100, 3):,}%)')
         next_price = current_price * rate_of_change
         
         if next_price == 0:
@@ -135,7 +136,7 @@ class CalcFactory():
 
 def get_investment_value_when_price_changes(investment_amount, current_price, next_price):
     nbr_of_shares = investment_amount / current_price
-    return InvestmentValue(Shares=nbr_of_shares, Value=(nbr_of_shares * next_price))
+    return InvestmentValue(Price=current_price, Shares=nbr_of_shares,Value=(nbr_of_shares * next_price))
 
 def get_price_change_rate_from_old_price(old_price, current_price):
     return current_price / old_price
@@ -227,7 +228,8 @@ def main_interactive():
             calc_arg.update(get_arguments(accepted_arguments))
             calc_arg['verbose'] = verbose
             
-            print(calc_arg)
+            if verbose:
+                log.verbose(calc_arg)
 
             log.info('Result: ')
             log.success(calc_function(**calc_arg))
