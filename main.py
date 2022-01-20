@@ -2,23 +2,26 @@ from collections import namedtuple
 from enum import Enum
 from typing import List
 
+InvestmentSuggestionFields = ('SharesToBuy', 
+                            'InvestmentValue', 
+                            'CurrentPrice', 
+                            'TargetBalance')
 InvestmentSuggestion = namedtuple('InvestSuggestion', 
-                                ['SharesToBuy', 
-                                'InvestmentValue', 
-                                'CurrentPrice', 
-                                'TargetBalance'])
+                                  InvestmentSuggestionFields, 
+                                  defaults=[-1]*len(InvestmentSuggestionFields))
 
-DEFAULT_INVEST_SUGGESTION = InvestmentSuggestion(-1, -1, -1, -1)
+DEFAULT_INVEST_SUGGESTION = InvestmentSuggestion()
 
 InvestmentValue = namedtuple('InvestmentValue', ['Shares', 'Value'])
 
-CalcArguments = namedtuple('CalcArguments',
-                            ['CurrentPrice',
-                            'OldPrice',
-                            'TargetPrice',
-                            'TargetBalance',
-                            'IntendedInvestmentAmount'
-                            ])
+CalcArgFields = ('current_price',
+                'old_price',
+                'target_price',
+                'target_balance',
+                'intended_investment_amount',
+                'next_prices',
+                'verbose')
+CalcArguments = namedtuple('CalcArguments', CalcArgFields, defaults=(False,) * len(CalcArgFields))
 
 class ERR_FLAG(Enum):
     DIV_BY_ZERO = 0x0
@@ -34,15 +37,19 @@ class CalcType(Enum):
 
 class CalcFactory():
     @staticmethod
-    def get_calc_function(case: CalcType):
+    def get_calc_function(case: CalcType, verbose=False):
         if case == CalcType.PREVIOUS_GROWTH:
-            return CalcFactory.calc_invest_given_previous_growth
+            return (CalcFactory.calc_invest_given_previous_growth, 
+            CalcArguments(current_price=True, old_price=True, target_balance=True, verbose=verbose))
         if case == CalcType.TARGET_PRICE:
-            return CalcFactory.calc_invest_given_target_price
+            return (CalcFactory.calc_invest_given_target_price,
+            CalcArguments(current_price=True, target_price=True, target_balance=True, verbose=verbose))
         if case == CalcType.MISSED_INVESTMENT:
-            return CalcFactory.calc_invest_for_missed_opportunity
+            return (CalcFactory.calc_invest_for_missed_opportunity,
+            CalcArguments(intended_investment_amount=True, current_price=True, old_price=True, verbose=verbose))
         else:
-            pass
+            return (CalcFactory.calc_invest_potential_investment,
+            CalcArguments(intended_investment_amount=True, current_price=True, next_prices=True, verbose=verbose))
     
     @staticmethod
     def calc_invest_given_previous_growth(current_price, old_price, target_balance, verbose=False):
@@ -70,11 +77,11 @@ class CalcFactory():
             current_price, target_price, target_balance)
 
     @staticmethod
-    def calc_invest_for_missed_opportunity(investment, current_price, old_price):
-        return get_investment_value_when_price_changes(investment_amount=investment, current_price=old_price, next_price=current_price)
+    def calc_invest_for_missed_opportunity(intended_investment_amount, current_price, old_price):
+        return get_investment_value_when_price_changes(investment_amount=intended_investment_amount, current_price=old_price, next_price=current_price)
 
-    def calc_invest_potential_investment(intended_investment: float, current_price: float, next_prices: List[float]):
-        return [get_investment_value_when_price_changes(investment_amount=intended_investment, 
+    def calc_invest_potential_investment(intended_investment_amount: float, current_price: float, next_prices: List[float]):
+        return [get_investment_value_when_price_changes(investment_amount=intended_investment_amount, 
                                                         current_price=current_price, 
                                                         next_price=next_price) for next_price in next_prices]
 
@@ -94,9 +101,29 @@ def get_suggested_investment_given_target_balance_and_target_price(current_price
                                 TargetBalance=target_balance)
 
 def main_interactive():
-    print('CalcInvest v0')
+    input_value = -2
+    while input_value != -1:
+        print('\nCalcInvest v0')
+        pretty_print_enum_spec = lambda enum_value_spec: repr(enum_value_spec).replace('CalcType', '').replace('<', '').replace('>', '').replace('.', '')  
+        options = [pretty_print_enum_spec(type_info) for type_info in list(CalcType)]
+        options_str = "\n\t".join(options)
+        try:
+            input_value = int(input(f'Choose calc option:\n\t{options_str}\n-1 to exit: '))
+        except:
+            print('Invalid value entered')
+            input_value = -2
+        
+        if input_value == -2 or input_value == -1:
+            continue
+
+        calc_function, calc_function_arg_specs = CalcFactory.get_calc_function(case=input_value)
+        calc_arg = {}
+        accepted_arguments = [arg[0] for arg in calc_function_arg_specs._asdict().items() if arg[1] == True]
+        print(accepted_arguments)        
+
 
 def main():
+    main_interactive()
     current_price = 0.000_028
     target_balance = 100_000
     when_price_gets_to = 0.001
