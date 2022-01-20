@@ -1,5 +1,5 @@
 from collections import namedtuple
-from curses import ERR
+from enum import Enum
 
 InvestmentSuggestion = namedtuple('InvestSuggestion', 
                                 ['SharesToBuy', 
@@ -7,27 +7,39 @@ InvestmentSuggestion = namedtuple('InvestSuggestion',
                                 'CurrentPrice', 
                                 'TargetBalance'])
 
-class ERR_FLAG:
+CalcArguments = namedtuple('CalcArguments',
+                            ['CurrentPrice',
+                            'OldPrice',
+                            'TargetPrice',
+                            'TargetBalance',
+                            'IntendedInvestmentAmount'
+                            ])
+
+class ERR_FLAG(Enum):
     DIV_BY_ZERO = 0x0
 
-class CalcFactory:
+class CalcType(Enum):
     # Calculate based on
     PREVIOUS_GROWTH = 0x0
     TARGET_PRICE = 0x1
     MISSED_INVESTMENT = 0x2
     POTENTIAL_INVESTMENT = 0x3
 
+# , calc_args: CalcArguments
+
+class CalcFactory():
     @staticmethod
-    def get_calc_function(case):
-        if case == CalcFactory.PREVIOUS_GROWTH:
+    def get_calc_function(case: CalcType):
+        if case == CalcType.PREVIOUS_GROWTH:
+            return CalcFactory.calc_invest_given_previous_growth
+        if case == CalcType.TARGET_PRICE:
             pass
-        if case == CalcFactory.TARGET_PRICE:
-            pass
-        if case == CalcFactory.MISSED_INVESTMENT:
+        if case == CalcType.MISSED_INVESTMENT:
             pass
         else:
             pass
     
+    @staticmethod
     def calc_invest_given_previous_growth(current_price, old_price, target_balance, verbose=False):
         rate_of_change = get_price_change_rate_from_old_price(old_price, current_price)
         if verbose:
@@ -39,7 +51,6 @@ class CalcFactory:
 
         return get_suggested_investment_given_target_balance_and_target_price(current_price, next_price, target_balance)
     
-
 
 def get_investment_value_when_price_changes(investment_amount, current_price, next_price):
     nbr_of_shares = investment_amount / current_price
