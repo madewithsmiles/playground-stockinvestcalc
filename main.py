@@ -9,6 +9,8 @@ InvestmentSuggestion = namedtuple('InvestSuggestion',
 
 DEFAULT_INVEST_SUGGESTION = InvestmentSuggestion(-1, -1, -1, -1)
 
+InvestmentValue = namedtuple('InvestmentValue', ['Shares', 'Value'])
+
 CalcArguments = namedtuple('CalcArguments',
                             ['CurrentPrice',
                             'OldPrice',
@@ -37,7 +39,7 @@ class CalcFactory():
         if case == CalcType.TARGET_PRICE:
             return CalcFactory.calc_invest_given_target_price
         if case == CalcType.MISSED_INVESTMENT:
-            pass
+            return CalcFactory.calc_invest_for_missed_opportunity
         else:
             pass
     
@@ -66,9 +68,13 @@ class CalcFactory():
         return get_suggested_investment_given_target_balance_and_target_price(
             current_price, target_price, target_balance)
 
+    @staticmethod
+    def calc_invest_for_missed_opportunity(investment, current_price, old_price):
+        return get_investment_value_when_price_changes(investment_amount=investment, current_price=old_price, next_price=current_price)
+
 def get_investment_value_when_price_changes(investment_amount, current_price, next_price):
     nbr_of_shares = investment_amount / current_price
-    return nbr_of_shares * next_price
+    return InvestmentValue(Shares=nbr_of_shares, Value=(nbr_of_shares * next_price))
 
 def get_price_change_rate_from_old_price(old_price, current_price):
     return current_price / old_price
