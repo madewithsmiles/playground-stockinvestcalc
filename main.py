@@ -4,8 +4,11 @@ from operator import is_
 from typing import List
 from abc import ABC, abstractmethod
 
+# investigate rich = https://pythonawesome.com/a-python-library-for-rich-text-and-beautiful-formatting-in-the-terminal/
+
 InvestmentSuggestionFields = ('SharesToBuy', 
-                            'InvestmentValue', 
+                            'InvestmentValue',
+                            'WillReachTargetBalanceAtPrice', 
                             'CurrentPrice', 
                             'TargetBalance')
 InvestmentSuggestion = namedtuple('InvestSuggestion', 
@@ -26,6 +29,10 @@ CalcArgFields = ('current_price',
 CalcArguments = namedtuple('CalcArguments', CalcArgFields, defaults=(False,) * len(CalcArgFields))
 
 class Logger(ABC):
+    @abstractmethod
+    def success(self, msg):
+        pass
+
     @abstractmethod
     def info(self, msg):
         pass
@@ -50,6 +57,9 @@ class ConsoleLogger(Logger):
         BOLD = '\x1b[1m' # '\033[1m'
         UNDERLINE = '\x1b[4m' # '\033[4m'
 
+    def success(self, msg):
+        print(f'{ConsoleLogger.bcolors.OKGREEN}{msg}{ConsoleLogger.bcolors.ENDC}')
+
     def info(self, msg):
         print(f'{ConsoleLogger.bcolors.OKBLUE}{msg}{ConsoleLogger.bcolors.ENDC}')
 
@@ -59,31 +69,33 @@ class ConsoleLogger(Logger):
     def error(self, msg):
         print(f'{ConsoleLogger.bcolors.FAIL}{msg}{ConsoleLogger.bcolors.ENDC}')
 
-class ERR_FLAG(Enum):
-    DIV_BY_ZERO = 0x0
+
 
 class CalcType(Enum):
     # Calculate based on
-    PREVIOUS_GROWTH = 0x0
-    TARGET_PRICE = 0x1
-    MISSED_INVESTMENT = 0x2
-    POTENTIAL_INVESTMENT = 0x3
-
-# , calc_args: CalcArguments
-
+    PREVIOUS_GROWTH = 0
+    TARGET_PRICE = 1
+    MISSED_INVESTMENT = 2
+    POTENTIAL_INVESTMENT = 3
 class CalcFactory():
     @staticmethod
     def get_calc_function(case: CalcType):
+        log = ConsoleLogger()
+        log.verbose(f'Case={case}')
         if case == CalcType.PREVIOUS_GROWTH:
+            log.verbose(f'Will calculate based on previous growth (Case = {CalcType.PREVIOUS_GROWTH})')
             return (CalcFactory.calc_invest_given_previous_growth, 
             CalcArguments(current_price=True, old_price=True, target_balance=True, verbose=True))
         if case == CalcType.TARGET_PRICE:
+            log.verbose(f'Will calculate based on target price (Case = {CalcType.TARGET_PRICE})')
             return (CalcFactory.calc_invest_given_target_price,
             CalcArguments(current_price=True, target_price=True, target_balance=True, verbose=True))
         if case == CalcType.MISSED_INVESTMENT:
+            log.verbose(f'Will calculate missed investment {CalcType.MISSED_INVESTMENT}')
             return (CalcFactory.calc_invest_for_missed_opportunity,
             CalcArguments(intended_investment_amount=True, current_price=True, old_price=True, verbose=True))
         else:
+            log.verbose(f'Will calculate potential investment opportunity {CalcType.POTENTIAL_INVESTMENT}')
             return (CalcFactory.calc_invest_potential_investment,
             CalcArguments(intended_investment_amount=True, current_price=True, next_prices=True, verbose=True))
     
@@ -133,6 +145,7 @@ def get_suggested_investment_given_target_balance_and_target_price(current_price
     estimated_investment = current_price * shares_to_buy
     return InvestmentSuggestion(SharesToBuy=shares_to_buy, 
                                 InvestmentValue=estimated_investment, 
+                                WillReachTargetBalanceAtPrice = target_price, 
                                 CurrentPrice=current_price,
                                 TargetBalance=target_balance)
 
@@ -158,7 +171,7 @@ def get_input_with_retry(prompt, max_retries, transform_and_validate_function):
         raise Exception("Reached max retries or entered 'exit' ")
 
 def transform_and_validate_to_float(inpt):
-    return True, float(inpt)
+    return float(inpt) > 0, float(inpt)
 
 def transform_and_validate_str_with_sep_to_float_list(inpt):
     sep = ', '
@@ -167,9 +180,10 @@ def transform_and_validate_str_with_sep_to_float_list(inpt):
 
 def get_arguments(arg_list, max_retries=3):
     calc_arg = {}
+    log = ConsoleLogger()
     for accepted_arg in arg_list:
             value = None
-            prompt = accepted_arg
+            prompt = '>>> ' + accepted_arg
             if accepted_arg != 'verbose':
                 if accepted_arg == 'next_prices':
                     sep = ' ,'
@@ -177,40 +191,46 @@ def get_arguments(arg_list, max_retries=3):
                     value = get_input_with_retry(prompt, max_retries, transform_and_validate_str_with_sep_to_float_list)
                 else:
                     value = get_input_with_retry(prompt + ': ', max_retries, transform_and_validate_to_float)
+            
             if value == 'exit':
                 raise Exception('Cancelled')
+            
+            log.verbose(f'{accepted_arg}={value}')
             calc_arg[accepted_arg] = value
     return calc_arg
 
 def main_interactive():
     input_value = -2
     verbose = True
-
+    log = ConsoleLogger()
     pretty_print_enum_spec = lambda enum_value_spec: repr(enum_value_spec).replace('CalcType', '').replace('<', '').replace('>', '').replace('.', '')  
     options = [pretty_print_enum_spec(type_info) for type_info in list(CalcType)]
     options_str = "\n\t".join(options)
     prompt = f'Choose calc option:\n\t{options_str}\n-1 or \'exit\' to exit: '
-    main_input_validation = lambda inpt: (inpt == 'exit' or (int(inpt) >= -2 or int(inpt) <= 3), int(inpt) if inpt != 'exit' else 'exit')
+    main_input_validation = lambda inpt: (inpt == 'exit' or (int(inpt) >= -1 or int(inpt) <= 3), int(inpt) if inpt != 'exit' else 'exit')
     
     while input_value != -1:
-        print('\nCalcInvest v0')
+        log.info('\nCalcInvest v0')
         try:
-            input_str = get_input_with_retry(prompt, 1, main_input_validation)
-            if input_str == 'exit':
+            inpt = get_input_with_retry(prompt, 1, main_input_validation)
+            log.verbose(f'Entered={inpt}')
+            if inpt == 'exit':
                 return
-            input_value = int(input_str)
+            input_value = int(inpt)
 
-            if input_value == -2 or input_value == -1:
+            if input_value == -1:
                 continue
 
-            calc_function, calc_function_arg_specs = CalcFactory.get_calc_function(case=input_value)
+            calc_function, calc_function_arg_specs = CalcFactory.get_calc_function(case=CalcType(input_value))
             calc_arg = {}
             accepted_arguments = [arg[0] for arg in calc_function_arg_specs._asdict().items() if arg[1]]
-            calc_arg['verbose'] = verbose
             calc_arg.update(get_arguments(accepted_arguments))
+            calc_arg['verbose'] = verbose
             
-            print('Result: ')
-            print(calc_function(*calc_arg))
+            print(calc_arg)
+
+            log.info('Result: ')
+            log.success(calc_function(**calc_arg))
 
         except Exception as ex:
             if verbose:
@@ -223,6 +243,7 @@ def main_interactive():
 
 def main():
     main_interactive()
+    print()
     current_price = 0.000_028
     target_balance = 100_000
     when_price_gets_to = 0.001
