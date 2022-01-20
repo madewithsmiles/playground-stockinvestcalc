@@ -1,5 +1,6 @@
 from collections import namedtuple
 from enum import Enum
+from typing import List
 
 InvestmentSuggestion = namedtuple('InvestSuggestion', 
                                 ['SharesToBuy', 
@@ -72,6 +73,11 @@ class CalcFactory():
     def calc_invest_for_missed_opportunity(investment, current_price, old_price):
         return get_investment_value_when_price_changes(investment_amount=investment, current_price=old_price, next_price=current_price)
 
+    def calc_invest_potential_investment(intended_investment: float, current_price: float, next_prices: List[float]):
+        return [get_investment_value_when_price_changes(investment_amount=intended_investment, 
+                                                        current_price=current_price, 
+                                                        next_price=next_price) for next_price in next_prices]
+
 def get_investment_value_when_price_changes(investment_amount, current_price, next_price):
     nbr_of_shares = investment_amount / current_price
     return InvestmentValue(Shares=nbr_of_shares, Value=(nbr_of_shares * next_price))
@@ -86,6 +92,9 @@ def get_suggested_investment_given_target_balance_and_target_price(current_price
                                 InvestmentValue=estimated_investment, 
                                 CurrentPrice=current_price,
                                 TargetBalance=target_balance)
+
+def main_interactive():
+    print('CalcInvest v0')
 
 def main():
     current_price = 0.000_028
