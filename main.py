@@ -1,6 +1,5 @@
 from collections import namedtuple
 from enum import Enum
-from operator import is_
 from typing import List
 from abc import ABC, abstractmethod
 
@@ -17,7 +16,7 @@ InvestmentSuggestion = namedtuple('InvestSuggestion',
 
 DEFAULT_INVEST_SUGGESTION = InvestmentSuggestion()
 
-InvestmentValue = namedtuple('InvestmentValue', ['Price', 'Shares', 'Value'])
+InvestmentValue = namedtuple('InvestmentValue', ['InitialInvestment', 'Price', 'Shares', 'NextPrice', 'Value', 'Profit'])
 
 CalcArgFields = ('current_price',
                 'old_price',
@@ -136,7 +135,15 @@ class CalcFactory():
 
 def get_investment_value_when_price_changes(investment_amount, current_price, next_price):
     nbr_of_shares = investment_amount / current_price
-    return InvestmentValue(Price=current_price, Shares=nbr_of_shares,Value=(nbr_of_shares * next_price))
+    value = (nbr_of_shares * next_price)
+    profit = value - investment_amount
+    return InvestmentValue(
+        InitialInvestment=investment_amount,
+        Price=current_price, 
+        Shares=nbr_of_shares, 
+        NextPrice=next_price, 
+        Value=value,
+        Profit=profit)
 
 def get_price_change_rate_from_old_price(old_price, current_price):
     return current_price / old_price
@@ -192,11 +199,11 @@ def get_arguments(arg_list, max_retries=3):
                     value = get_input_with_retry(prompt, max_retries, transform_and_validate_str_with_sep_to_float_list)
                 else:
                     value = get_input_with_retry(prompt + ': ', max_retries, transform_and_validate_to_float)
-            
+                log.verbose(f'{accepted_arg}={value}')
+
             if value == 'exit':
                 raise Exception('Cancelled')
             
-            log.verbose(f'{accepted_arg}={value}')
             calc_arg[accepted_arg] = value
     return calc_arg
 
@@ -245,31 +252,6 @@ def main_interactive():
 
 def main():
     main_interactive()
-    print()
-    current_price = 0.000_028
-    target_balance = 100_000
-    when_price_gets_to = 0.001
-
-    based_on_past_growth = False
-    old_price = 0.000_000_0001
-    rate_of_change = current_price / old_price
-
-    if based_on_past_growth:
-        when_price_is = rate_of_change * current_price
-    else:
-        when_price_is = when_price_gets_to
-
-    shares_to_buy = round(target_balance / when_price_is, 3)
-    estimated_investment = round(current_price * shares_to_buy, 3)
-
-    print(f'If current price is ${current_price:,}, and target balance is ${target_balance:,}')
-    if based_on_past_growth:
-        print(f'given past performance from old price ${old_price:,}, which suggests price increased by {rate_of_change:,}:')
-    else:
-        print(f'given target balance when price gets to ${when_price_gets_to:,}:')
-
-    print(f'you should buy {{{shares_to_buy:,}}} shares. Estimated investment amount ${estimated_investment:,}')
-
 
 if __name__ == "__main__":
     main()
