@@ -2,6 +2,8 @@ from collections import namedtuple
 from enum import Enum
 from typing import List
 from abc import ABC, abstractmethod
+from rich.console import Console
+from rich.table import Column, Table
 
 # investigate rich = https://pythonawesome.com/a-python-library-for-rich-text-and-beautiful-formatting-in-the-terminal/
 
@@ -58,7 +60,10 @@ class ConsoleLogger(Logger):
         UNDERLINE = '\x1b[4m' # '\033[4m'
 
     def success(self, msg):
-        print(f'{ConsoleLogger.bcolors.OKGREEN}{msg}{ConsoleLogger.bcolors.ENDC}')
+        if msg and (isinstance(msg, InvestmentSuggestion) or isinstance(msg, InvestmentValue) or (isinstance(msg, list) and isinstance(msg[0], InvestmentSuggestion) or isinstance(msg[0], InvestmentValue))):
+            self.success_investments(msg)
+        else:
+            print(f'{ConsoleLogger.bcolors.OKGREEN}{msg}{ConsoleLogger.bcolors.ENDC}')
 
     def info(self, msg):
         print(f'{ConsoleLogger.bcolors.OKBLUE}{msg}{ConsoleLogger.bcolors.ENDC}')
@@ -69,6 +74,22 @@ class ConsoleLogger(Logger):
     def error(self, msg):
         print(f'{ConsoleLogger.bcolors.FAIL}{msg}{ConsoleLogger.bcolors.ENDC}')
 
+    def success_investments(self, invsts):
+        console = Console()
+
+        table = Table(show_header=True, header_style="bold magenta")
+        is_list = isinstance(invsts, list)
+        headers = invsts[0]._fields if is_list else invsts._fields
+        for header in headers:
+            table.add_column(header, justify="right")
+
+        if is_list:
+            for inv in invsts:
+                table.add_row(*[str(i) for i in inv._asdict().values()])
+        else:
+            table.add_row(*[str(i) for i in invsts._asdict().values()])
+
+        console.print(table)
 
 
 class CalcType(Enum):
